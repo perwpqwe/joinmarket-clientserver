@@ -3,6 +3,7 @@
 # note, only used for non-cryptographic randomness:
 import random
 import json
+import itertools
 # needed for single sha256 evaluation, which is used
 # in bitcoin (p2wsh) but not exposed in python-bitcointx:
 import hashlib
@@ -368,6 +369,16 @@ def extract_pubkey_from_witness(tx, i):
             return None, "invalid pubkey in witness"
         return secp256k1.PublicKey(sWitness[1]), "success"
 
+def get_equal_outs(tx):
+    """ If 2 or more transaction outputs have the same
+    bitcoin value, return then as a list of CTxOuts.
+    If there is not exactly one equal output size, return [].
+    """
+    list_equal = [list(g) for k, g in itertools.groupby(
+        [i for i, v in enumerate(tx.vout)])]
+    if len(list_equal) != 1:
+        return None
+    return list_equal
 
 def is_jm_tx(tx, min_cj_amount=75000, min_participants=3):
     """ Identify Joinmarket-patterned transactions.

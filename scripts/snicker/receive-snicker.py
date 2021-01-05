@@ -21,7 +21,7 @@ The only argument to this script is the (JM) wallet
 file against which to check.
 Once all proposals have been parsed, the script will
 quit.
-Usage: %prog [options] [wallet file]
+Usage: %prog [options] wallet file [proposal]
 """
     parser = OptionParser(usage=usage)
     add_base_options(parser)
@@ -38,6 +38,14 @@ Usage: %prog [options] [wallet file]
                       dest='amtmixdepths',
                       help='number of mixdepths in wallet, default 5',
                       default=5)
+    parser.add_option(
+        '-n',
+        '--no-upload',
+        action='store_true',
+        dest='no_upload',
+        default=False,
+        help="if set, we read the proposal from the command line"
+    )
 
     (options, args) = parser.parse_args()
     if len(args) < 1:
@@ -65,6 +73,10 @@ Usage: %prog [options] [wallet file]
     nodaemon = jm_single().config.getint("DAEMON", "no_daemon")
     daemon = True if nodaemon == 1 else False
     snicker_r = SNICKERReceiver(wallet_service)
+    if options.no_upload:
+        proposal = args[1]
+        snicker_r.process_proposals([proposal])
+        return
     servers = jm_single().config.get("SNICKER", "servers").split(",")
     snicker_pf = SNICKERClientProtocolFactory(snicker_r, servers, oneshot=True)
     start_reactor(jm_single().config.get("DAEMON", "daemon_host"),

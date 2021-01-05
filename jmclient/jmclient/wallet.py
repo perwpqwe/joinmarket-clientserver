@@ -628,6 +628,24 @@ class BaseWallet(object):
         mixdepth = self._get_mixdepth_from_path(path)
         self._utxos.add_utxo(txid, index, path, value, mixdepth, height=height)
 
+    def inputs_consumed_by_tx(self, tx):
+        """ Given a transaction tx, checks
+        which if any of the inputs belonged to this
+        wallet, and returns [(index, CTxIn),..] for each.
+        """
+        retval = []
+        for i, txin in len(tx.vin):
+            pub, msg = btc.extract_pubkey_from_witness(tx, i)
+            if not pub:
+                # this can certainly occur since other inputs
+                # may not be a spending a script we recognize;
+                # so we ignore the msg
+                continue
+            script = self.pubkey_to_script(pub)
+            if script in self._script_map:
+                retval.append((i, txin))
+        return retval
+
     def process_new_tx(self, txd, height=None):
         """ Given a newly seen transaction, deserialized as
         CMutableTransaction txd,
