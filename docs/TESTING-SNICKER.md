@@ -2,7 +2,7 @@
 
 Current pull request/branch [here](https://github.com/JoinMarket-Org/joinmarket-clientserver/pull/768).
 
-Instructions here are very subject to change. This is correct as of commit https://github.com/JoinMarket-Org/joinmarket-clientserver/pull/768/commits/f103cd77236c07a253d9e68aca7cccae498d6e35.
+Instructions here are subject to change. This is correct as of commit https://github.com/JoinMarket-Org/joinmarket-clientserver/commit/3870930dca3388ee664e88e8205bb9068cca2f52.
 
 The main user-facing body of what is created here is to be found in the directory `scripts/snicker`, consisting of scripts:
 * `snicker-seed-tx.py` - create a fake SNICKER transaction in your own wallet
@@ -10,6 +10,7 @@ The main user-facing body of what is created here is to be found in the director
 * `create-encrypted-proposal.py` - takes transactions found from the above and makes proposals, uploading them to a server
 * `snicker-server.py` - implements a simple server serving over *.onion, with a sqlite database to store proposals, and defends against spam only mildly with a proof of work requirement (see below)
 * `receive-snicker.py` - polls above server to read new proposals, parse them and broadcasts completed SNICKER coinjoins when found, storing the new keys as imports (see details on wallet handling below).
+* `snicker-recovery.py` - can be used to recover a wallet from seedphrase which contains SNICKER utxos, though it needs (possibly multiple) rescanblockchain calls (and informs the user how to do this, including blockheights).
 
 #### Quick review of SNICKER functionality
 
@@ -40,7 +41,7 @@ The **receiver** then polls this server (for testing, make the polling loop fast
 
 **Testnet** will be helpful especially if you intend to test with others. This can be done by simply sharing proposals or sharing proposal server locations as onion addresses, and possibly communicating with other testers to identify candidate transactions (obviously this strays far from the intended way SNICKER will be used, but it might be convenient to test workflow).
 
-Mainnet isn't recommended now, for obvious reasons (including that it's a bit too slow for testing).
+Mainnet isn't recommended yet.
 
 #### Use of wallets
 
@@ -68,7 +69,7 @@ Your hidden service is available:
 xpkqk2cy2h2ay5iecwcod5ka36nxj2tsiyczk2w5c6o7h5g57w3xg4id.onion
 ```
 
-This is ephemeral, obviously we intend the real servers to be long-running. For now, add that onion link here:
+This is ephemeral, obviously we intend the real servers to be long-running. The one in the default config should exist and be long-running already, but of course your tests don't need to rely on this.
 
 ```
 
@@ -112,23 +113,22 @@ Copy that fully signed transaction hex, and note the unspent outputs. You're goi
 At this point you're ready to run the proposal creator:
 
 ```
-python create-encrypted-proposal.py --datadir=. proposerwallet.jmdat "0200000000010138e8a90b3df7740b9d5f5ae9af2cf6769f314d290b2e12bf25bfa4aae2c0cbe20000000000feffffff0280ba8c010000000016001471b09afbac6204627225c10f3a8d4a0749364fdb6d7c36220000000016001447ae59f32c504cbb56e18b77f7842fb58b55025b02473044022075354351ad4c619ba662f9abd25e8ee434f8381795001606a29fa959d36aeb7f022018f8bf1ec0407dad586baeb7e4d977aaacbd8fb15579293e6d739ad69ac3c6cf012103f8e827464fb83209c194376c53ae8f4e7ab5f1baf0948705fec6dd421f2b65c37a020000" 0 1 100 -m1
+python create-encrypted-proposal.py --datadir=. proposerwallet.jmdat "0200000000010138e8a90b3df7740b9d5f5ae9af2cf6769f314d290b2e12bf25bfa4aae2c0cbe20000000000feffffff0280ba8c010000000016001471b09afbac6204627225c10f3a8d4a0749364fdb6d7c36220000000016001447ae59f32c504cbb56e18b77f7842fb58b55025b02473044022075354351ad4c619ba662f9abd25e8ee434f8381795001606a29fa959d36aeb7f022018f8bf1ec0407dad586baeb7e4d977aaacbd8fb15579293e6d739ad69ac3c6cf012103f8e827464fb83209c194376c53ae8f4e7ab5f1baf0948705fec6dd421f2b65c37a020000" 0 1 100 -m1 -n
 ```
-Obviously see the `--help` for details, but in this example we chose input index 0 to source the pubkey for the encryption, output index 1 for the coin we want the receiver to spend with us in the coinjoin, 100 sats as the amount we will bump their output by as an incentive to do the coinjoin (you *can* make this number negative, to receive, instead - the proposer is paying the tx fee otherwise, note), and mixdepth 1 as the mixdepth from which we source *our* coins for the coinjoin. Make sure of course that mixdepth 1 has at least a little bit more bitcoin than the size of that output at index 1 aforementioned.
+Obviously see the `--help` for details, but in this example we chose input index 0 to source the pubkey for the encryption, output index 1 for the coin we want the receiver to spend with us in the coinjoin, 100 sats as the amount we will bump their output by as an incentive to do the coinjoin (you *can* make this number negative, to receive, instead - the proposer is paying the tx fee otherwise, note), and mixdepth 1 as the mixdepth from which we source *our* coins for the coinjoin. Make sure of course that mixdepth 1 has at least a little bit more bitcoin than the size of that output at index 1 aforementioned. The `-n` option can be used to output the proposal to stdout (it is base64+hex so copy-pasteable).
 
-*Current bug* : when you run the above, assuming it connects the server OK, you will see:
+If you choose not to use -n, but instead use a proposals server as above, then assuming it connects the server OK, you will see:
 
 ```
 Response from server: http://xpkqk2cy2h2ay5iecwcod5ka36nxj2tsiyczk2w5c6o7h5g57w3xg4id.onion was: 1 proposals-accepted
 ```
-... but it will hang and not quit. Just Ctrl-C to quit until that bug is fixed (the "proposals-accepted" tells you that the proposal was recorded).
 
 ##### Receiving the created proposals.
 
 The last phase is pretty simple, if it works - just run the receiver script (from `scripts/snicker`) as follows:
 
 ```
-python receive-snicker.py --datadir=. receiver.jmdat
+python receive-snicker.py --datadir=. receiver.jmdat [proposal]
 User data location: .
 2020-12-16 11:43:03,779 [DEBUG]  rpc: getblockchaininfo []
 2020-12-16 11:43:03,781 [DEBUG]  rpc: getnewaddress []
@@ -153,11 +153,21 @@ b356baea2525e9c4fe15c863091c1b2df84abbec7332992381ed84016f6afa8f:0 - path: m/84'
 ```
 
 Obviously this is the ideal case: if no errors occur. If invalid proposals, or proposals on coins that no longer exist because you already spent them, are encountered, logging messages are displayed to that effect.
-(This data will all be added to a SNICKER log file shortly, but that doesn't exist yet.)
+
+If you did choose the `-n` option then you can pass the copy-pasted proposal on the command line and it will just process that instead of polling.
+
+#### Logging
+
+Output from runs of receiver scripts (as per above) is also logged at `<datadir>/logs/SNICKER/SNICKER-joinmarket-wallet-xxxxx.log`).
+
 
 ### What kind of testing is useful?
 
-Pretty much anything at this early stage.
+The above is the baseline workflow. Additionally, you can test:
+
+#### Wallet recovery from seed
+
+This case is already somewhat tricky in Joinmarket, but for the worst possible scenario of only having a seedphrase and no address imports in the wallet and no Joinmarket jmdat file, and having used SNICKER recently and not spent those coins, recovery is particularly tricky (which is why users who enable this feature must be warned that it's very important not to lose the jmdat file). However even in this case full recovery is possible, using the script `snicker-recovery.py`. To fully test this try making multiple SNICKER transactions in a wallet, then deleting the jmdat and creating a new Core wallet (on the same regtest instance of course!), enabling it in joinmarket.cfg, then running `wallet-tool.py recover` with the seedphrase, then running the aforementioned snicker recovery script; it will prompt you to `rescanblockchain` from certain heights, potentially more than once; the reason for this is that Core cannot find arbitrarily the transactions which spend custom keys which we discover during wallet recovery, we need to import and rescan before going to the next step, although this will only be an edge case).
 
 ##### Appendix: Example output of SNICKER
 

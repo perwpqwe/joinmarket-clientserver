@@ -160,7 +160,7 @@ def main():
             pubkey,
             prop_destn_spk,
             change_spk,
-            version_byte=1) + b"," + bintohex(pubkey.format()).encode('utf-8')
+            version_byte=1) + b"," + bintohex(pubkey).encode('utf-8')
     if options.no_upload:
         jmprint(encrypted_proposal.decode("utf-8"))
         sys.exit(EXIT_SUCCESS)
