@@ -367,18 +367,25 @@ def extract_pubkey_from_witness(tx, i):
             return None, "invalid witness for p2wpkh."
         if not is_valid_pubkey(sWitness[1], True):
             return None, "invalid pubkey in witness"
-        return secp256k1.PublicKey(sWitness[1]), "success"
+        return sWitness[1], "success"
 
 def get_equal_outs(tx):
     """ If 2 or more transaction outputs have the same
     bitcoin value, return then as a list of CTxOuts.
-    If there is not exactly one equal output size, return [].
+    If there is not exactly one equal output size, return False.
     """
-    list_equal = [list(g) for k, g in itertools.groupby(
-        [i for i, v in enumerate(tx.vout)])]
-    if len(list_equal) != 1:
-        return None
-    return list_equal
+    retval = []
+    l = [x.nValue for x in tx.vout]
+    eos = [i for i in l if l.count(i)>=2]
+    if len(eos) > 0:
+        eos = set(eos)
+        if len(eos) > 1:
+            return False
+    for i, vout in enumerate(tx.vout):
+        if vout.nValue == list(eos)[0]:
+            retval.append((i, vout))
+    assert len(retval) > 1
+    return retval
 
 def is_jm_tx(tx, min_cj_amount=75000, min_participants=3):
     """ Identify Joinmarket-patterned transactions.

@@ -157,7 +157,7 @@ def main():
             net_transfer,
             fee_est,
             priv,
-            pubkey.format(),
+            pubkey,
             prop_destn_spk,
             change_spk,
             version_byte=1) + b"," + bintohex(pubkey.format()).encode('utf-8')

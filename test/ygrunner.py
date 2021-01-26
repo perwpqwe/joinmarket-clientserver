@@ -17,7 +17,7 @@ import random
 from jmbase import jmprint
 from jmclient import YieldGeneratorBasic, load_test_config, jm_single,\
     JMClientProtocolFactory, start_reactor, SegwitWallet,\
-    SegwitLegacyWallet, cryptoengine, SNICKERClientProtocolFactory
+    SegwitLegacyWallet, cryptoengine, SNICKERClientProtocolFactory, SNICKERReceiver
 
 
 class MaliciousYieldGenerator(YieldGeneratorBasic):
@@ -170,7 +170,9 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, mean_amt,
             yg.set_maliciousness(malicious, mtype="tx")
         clientfactory = JMClientProtocolFactory(yg, proto_type="MAKER")
         if jm_single().config.get("SNICKER", "enabled") == "true":
-            snicker_factory = SNICKERClientProtocolFactory()
+            snicker_r = SNICKERReceiver(wallet_service_yg)
+            servers = jm_single().config.get("SNICKER", "servers").split(",")
+            snicker_factory = SNICKERClientProtocolFactory(snicker_r, servers)
         else:
             snicker_factory = None
         nodaemon = jm_single().config.getint("DAEMON", "no_daemon")
